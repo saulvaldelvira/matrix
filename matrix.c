@@ -76,7 +76,7 @@ void rand_stream(Stream *str);
 void sleep_for(unsigned long millis);
 
 static inline double get_time(){
-        struct timeval tv;
+        static struct timeval tv;
         gettimeofday(&tv, NULL);
         return tv.tv_sec * 1.0 + tv.tv_usec / 1000000.0;
 }
@@ -167,6 +167,10 @@ int main(int argc, char *argv[]){
 
         screen_clear();
         // Loop
+        struct timespec ts = {
+                .tv_sec = 0,
+                .tv_nsec = 10000000 // 10ms
+        };
         while (1){
                 elapsed_time = get_time() - last_time;
                 last_time = get_time();
@@ -186,6 +190,7 @@ int main(int argc, char *argv[]){
                         }
                 }
                 fflush(stdout);
+                nanosleep(&ts, NULL);
         }
 
         // free mem
@@ -221,8 +226,6 @@ void update(double elapsed_time){
                         }else if (j >= stream->length - 3 && j < stream->length -1){
                                 col = 249;
                         }
-
-                        console_setcolor256_fg(col);
 
                         int char_index;
                         if (config.stream == NULL){

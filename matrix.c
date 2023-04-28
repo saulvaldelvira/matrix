@@ -7,14 +7,21 @@
 #include <wchar.h>
 #include "console.h"
 #include <stdlib.h>
-#include <sys/ioctl.h>
-#include <signal.h>
 #include <time.h>
-#include <sys/time.h>
-#include <unistd.h>
 #include <locale.h>
 #include <string.h>
 #include <stdbool.h>
+
+#ifdef __unix__
+        #include <sys/ioctl.h>
+        #include <sys/time.h>
+        #include <signal.h>
+        #include <unistd.h>
+#elif _WIN32
+        #include <windows.h>
+        #include <fcntl.h>
+        #include <io.h>
+#endif
 
 /**
  * A stream of text
@@ -46,7 +53,8 @@ typedef struct Gliph {
 Gliph *gliphs;
 #define gliph_at(x,y) gliphs[(y) * screen_width + (x)]
 
-static inline void gliph_set(Gliph *gliph, wchar_t character, short color){
+static inline void gliph_set(int x, int y, wchar_t character, short color){
+        Gliph *gliph = &gliph_at(x,y);
         gliph->character = character;
         gliph->color = color;
         gliph->need_update = true;
@@ -75,10 +83,17 @@ void cleanup();
 void rand_stream(Stream *str);
 void sleep_for(unsigned long millis);
 
+/**
+ * Returns the current time, is seconds
+*/
 static inline double get_time(){
+#ifdef __unix__
         static struct timeval tv;
         gettimeofday(&tv, NULL);
         return tv.tv_sec * 1.0 + tv.tv_usec / 1000000.0;
+#elif _WIN32
+        return GetTickCount() * 1.0 / 1000.0;
+#endif
 }
 
 // Configuration
@@ -94,6 +109,13 @@ struct {
         .seed_char = UNICODE_CHAR,
         .step = UNICODE_STEP
 };
+
+#ifdef _WIN32
+HANDLE win_console;
+// Helper functions for windows
+void handle_signal(DWORD signal);
+void win_setup_console();
+#endif
 
 int main(int argc, char *argv[]){
         // Arguments and configuration
@@ -153,19 +175,17 @@ int main(int argc, char *argv[]){
                 setlocale(LC_CTYPE, "en_US.UTF-8");
         }
 
-        if (config.seed_char == 0){
-                config.seed_char = UNICODE_CHAR;
-        }
-
-        if (config.step == 0){
-                config.step = UNICODE_STEP;
-        }
-
         // Initialization
         srand(time(NULL));
         check_screen_size();
 
-        signal(SIGINT, &cleanup); // use sigaction instead ??
+        // Handle CTRL + C signal
+#ifdef __unix__
+        signal(SIGINT, &cleanup);
+#elif _WIN32
+        SetConsoleCtrlHandler((PHANDLER_ROUTINE) handle_signal, TRUE);
+        win_setup_console();
+#endif
 
         console_save_state();
         buffer_save();
@@ -177,10 +197,12 @@ int main(int argc, char *argv[]){
 
         screen_clear();
         // Loop
+#ifdef __unix__
         struct timespec ts = {
                 .tv_sec = 0,
                 .tv_nsec = 10000000 // 10ms
         };
+#endif
         while (1){
                 elapsed_time = get_time() - last_time;
                 last_time = get_time();
@@ -200,7 +222,11 @@ int main(int argc, char *argv[]){
                         }
                 }
                 fflush(stdout);
+        #ifdef __unix__
                 nanosleep(&ts, NULL);
+        #elif _WIN32
+                Sleep(10);
+        #endif
         }
 
         // free mem
@@ -215,7 +241,8 @@ void update(double elapsed_time){
                 // Remove stream. This is done to avoid having to clear the whole
                 // screen each frame. The streams clean after themselves.
                 for (int j = 0; j < stream->length && stream->y + j < screen_height; j++){
-                        gliph_set(&gliph_at(stream->x, ((int)stream->y) + j), L' ', 0);
+                        gliph_set(stream->x, ((int)stream->y) + j, L' ', 0);
+                        gliph_set(stream->x+1, ((int)stream->y) + j, L' ', 0);
                 }
 
                 stream->y += stream->speed * elapsed_time * (screen_height / 55.0);
@@ -244,8 +271,7 @@ void update(double elapsed_time){
                         }else{
                                 char_index = j;
                         }
-                        Gliph *g = &gliph_at(stream->x,((int)stream->y) + j);
-                        gliph_set(g, stream->str[char_index], col);
+                        gliph_set(stream->x,((int)stream->y) + j, stream->str[char_index], col);
                 }
         }
 }
@@ -289,10 +315,18 @@ void rand_stream(Stream *stream){
 }
 
 void check_screen_size(){
+#ifdef __unix__
         struct winsize size;
         ioctl(1, TIOCGWINSZ, &size);
         int w = size.ws_col + 1;
         int h = size.ws_row + 1;
+#elif _WIN32
+        CONSOLE_SCREEN_BUFFER_INFO csbi;
+        int columns, rows;
+        GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
+        int w = csbi.srWindow.Right - csbi.srWindow.Left + 1;
+        int h = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+#endif
         if (w != screen_width || h != screen_height){
                 resize(w, h);
         }
@@ -342,3 +376,20 @@ void cleanup(){
         }
         exit(0);
 }
+
+#ifdef _WIN32
+void handle_signal(DWORD signal){
+        if (signal == CTRL_C_EVENT){
+                cleanup();
+        }
+}
+
+void win_setup_console(){
+        win_console = GetStdHandle(STD_OUTPUT_HANDLE);
+        DWORD mode;
+        SetConsoleOutputCP(CP_UTF8);
+        GetConsoleMode(win_console, &mode);
+        mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+        SetConsoleMode(win_console, mode);
+}
+#endif

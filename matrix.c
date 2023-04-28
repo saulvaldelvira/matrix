@@ -88,8 +88,11 @@ struct {
         int step;
         wchar_t *stream;
         int stream_length;
+        int nstreams;
 } config = {
-        .unicode = true
+        .unicode = true,
+        .seed_char = UNICODE_CHAR,
+        .step = UNICODE_STEP
 };
 
 int main(int argc, char *argv[]){
@@ -130,6 +133,13 @@ int main(int argc, char *argv[]){
                                         while (*src != '\0'){
                                                 *dst++ = (wchar_t) *src++;
                                         }
+                                }
+                                else if (strcmp(&argv[i][2], "number-of-streams") == 0){
+                                        if (i == argc - 1){
+                                                fprintf(stderr, "Missing argument to --number-of-streams\n");
+                                                exit(1);
+                                        }
+                                        config.nstreams = atoi(argv[++i]);
                                 }
                                 else{
                                         fprintf(stderr, "Invalid argument %s\n", &argv[i][2]);
@@ -306,7 +316,11 @@ void resize(int width, int height){
                 }
                 free(streams);
         }
-        n_streams = screen_width + (screen_width * 0.3);
+        if (config.nstreams == 0){
+                n_streams = screen_width + (screen_width * 0.3);
+        }else{
+                n_streams = config.nstreams;
+        }
         streams = calloc(n_streams, sizeof(Stream));
         for (int i = 0; i < n_streams; i++){
                 rand_stream(&streams[i]);

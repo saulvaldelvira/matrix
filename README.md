@@ -17,7 +17,7 @@ A console aplication to render a rainfall of characters, just like in the movie.
                             streams of text will be generated starting from that character. <br>
 - `--step <number>`: Sets how many characters since the "char seed" to use for the stream generation. <br>
 - `--stream <string>`: use the given string as the stream. <br>
-
+- `--number-of-streams <number>`: sets the number of streams on the screen <br>
 
 ### Examples: <br>
 - `matrix --char-seed 41 --step 4` will generate random streams of text using the characters from `A` (0x41) to `D` (0x44) <br>

@@ -273,13 +273,8 @@ void update(double elapsed_time){
                                 col = 249;
                         }
 
-                        int char_index;
-                        if (config.stream == NULL){
-                                // A little trick to make the characters change positions
-                                char_index = abs(j + (int)stream->y) % stream->length;
-                        }else{
-                                char_index = j;
-                        }
+                        // A little trick to make the characters change positions
+                        int char_index = abs(j + (int)stream->y) % stream->length;;
                         gliph_set(stream->x,((int)stream->y) + j, stream->str[char_index], col);
                 }
         }

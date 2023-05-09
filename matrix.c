@@ -242,7 +242,6 @@ void update(double elapsed_time){
                 // screen each frame. The streams clean after themselves.
                 for (int j = 0; j < stream->length && stream->y + j < screen_height; j++){
                         gliph_set(stream->x, ((int)stream->y) + j, L' ', 0);
-                        gliph_set(stream->x+1, ((int)stream->y) + j, L' ', 0);
                 }
 
                 stream->y += stream->speed * elapsed_time * (screen_height / 55.0);

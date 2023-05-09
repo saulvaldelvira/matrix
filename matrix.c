@@ -82,6 +82,7 @@ void resize(int width, int hwight);
 void cleanup();
 void rand_stream(Stream *str);
 void sleep_for(unsigned long millis);
+void help();
 
 /**
  * Returns the current time, is seconds
@@ -113,7 +114,7 @@ struct {
 #ifdef _WIN32
 HANDLE win_console;
 // Helper functions for windows
-void handle_signal(DWORD signal);
+void win_handle_signal(DWORD signal);
 void win_setup_console();
 #endif
 
@@ -163,9 +164,18 @@ int main(int argc, char *argv[]){
                                         }
                                         config.nstreams = atoi(argv[++i]);
                                 }
+                                else if(strcmp(&argv[i][2], "help") == 0){
+                                        help();
+                                }
                                 else{
-                                        fprintf(stderr, "Invalid argument %s\n", &argv[i][2]);
+                                        fprintf(stderr, "Invalid argument: %s\nUse --help or -h to get a list of possible arguments\n", &argv[i][2]);
                                         exit(1);
+                                }
+                        }else{
+                                switch (argv[i][1]){
+                                case 'h':
+                                        help();
+                                        break;
                                 }
                         }
                 }
@@ -376,8 +386,20 @@ void cleanup(){
         exit(0);
 }
 
+void help(){
+        printf("Matrix Rain\n"
+                "Parameters:\n"
+                "  --ascii: use ascii characters only.\n"
+                "  --char-seed <hex-code>: uses the given char as the \"seed\".\n"
+                "  --step <number>: Sets how many characters since the \"char seed\" to use for the stream generation.\n"
+                "  --stream <string>: use the given string as the stream.\n"
+                "  --number-of-streams <number>: sets the number of streams on the screen\n"
+                "  --help (or -h): display this help guide.\n");
+        exit(0);
+}
+
 #ifdef _WIN32
-void handle_signal(DWORD signal){
+void win_handle_signal(DWORD signal){
         if (signal == CTRL_C_EVENT){
                 cleanup();
         }

@@ -1,12 +1,10 @@
 ## The matrix, in your terminal
-A console aplication to render a rainfall of characters, just like in the movie. <br>
+A console aplication to render a rainfall of characters, like in the movie.<br>
 
 ![screencast](https://img.saulv.es/matrix.gif)
 
-## Features
-- Supports unicode<br>
-- Simple. Only uses ANSI escapes, no need for third-party libraries. <br>
-- Flexible. The screen can be resized, and the character set is customizable. <br>
+- Supports unicode <br>
+- Only uses ANSI escapes, no external dependencies <br>
 
 ## Arguments
 - `--ascii`: use ascii characters only. <br>
@@ -21,5 +19,5 @@ A console aplication to render a rainfall of characters, just like in the movie.
 - `matrix --stream hello-world!` will generate streams of "hello-world!". The length of the stream is random,
                                  some of them may be "hell" or "hello-wo". <br>
 
-**NOTE:** On Windows, the output to console is EXTREMELY slow, specially when using unicode. So you'll probably need 
+**NOTE:** On Windows, the output to console is VERY slow, specially when using unicode characters. You'll probably need
 to use `--ascii` parameter or `--number-of-streams` with a really small number, like 12 or 15.

@@ -61,7 +61,7 @@ static inline void gliph_set(int x, int y, wchar_t character, short color){
 }
 
 #define abs(n) ((n) < 0 ? -(n) : (n))
-#define rand_range(min,max) rand() % ((max) - (min)) + (min)
+#define rand_range(min,max) (rand() % ((max) - (min)) + (min))
 
 // Default values
 #define UNICODE_CHAR     0x30A1

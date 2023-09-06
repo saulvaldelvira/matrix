@@ -193,7 +193,7 @@ int main(int argc, char *argv[]){
 #ifdef __unix__
         signal(SIGINT, &cleanup);
 #elif _WIN32
-        SetConsoleCtrlHandler((PHANDLER_ROUTINE) handle_signal, TRUE);
+        SetConsoleCtrlHandler((PHANDLER_ROUTINE) win_handle_signal, TRUE);
         win_setup_console();
 #endif
 

@@ -16,6 +16,10 @@
 #include <poll.h>
 #endif
 
+#if __has_include(<termios.h>)
+#include <termios.h>
+#endif
+
 #ifdef __unix__
 #include <sys/ioctl.h>
 #include <sys/time.h>
@@ -99,6 +103,9 @@ struct {
         wchar_t *stream;
         int stream_length;
         int nstreams;
+#if __has_include(<termios.h>)
+        struct termios original_term;
+#endif
 } conf = {
         .unicode = true,
         .seed_char = UNICODE_CHAR,
@@ -187,6 +194,13 @@ int main(int argc, char *argv[]){
                         }
                 }
         }
+#endif
+
+#if __has_include(<termios.h>)
+        tcgetattr(STDIN_FILENO, &conf.original_term);
+        struct termios term = conf.original_term;
+        term.c_lflag &= ~ECHO;
+        tcsetattr(STDIN_FILENO, TCSANOW, &term);
 #endif
 
         srand(time(NULL));
@@ -354,6 +368,9 @@ void cleanup(){
                         free(streams[i].str);
                 free(streams);
         }
+#if __has_include(<termios.h>)
+        tcsetattr(STDIN_FILENO, TCSANOW, &conf.original_term);
+#endif
         exit(0);
 }
 

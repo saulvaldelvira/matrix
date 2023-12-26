@@ -1,9 +1,10 @@
 /**
  * Matrix rainfall animation
  * Author: Saúl Valdelvira (2023)
-*/
+ */
 #include <stdio.h>
 #include <wchar.h>
+#include <wctype.h>
 #include "console.h"
 #include <stdlib.h>
 #include <time.h>
@@ -11,15 +12,19 @@
 #include <string.h>
 #include <stdbool.h>
 
+#if __has_include(<poll.h>)
+#include <poll.h>
+#endif
+
 #ifdef __unix__
-        #include <sys/ioctl.h>
-        #include <sys/time.h>
-        #include <signal.h>
-        #include <unistd.h>
+#include <sys/ioctl.h>
+#include <sys/time.h>
+#include <signal.h>
+#include <unistd.h>
 #elif _WIN32
-        #include <windows.h>
-        #include <fcntl.h>
-        #include <io.h>
+#include <windows.h>
+#include <fcntl.h>
+#include <io.h>
 #endif
 
 struct stream {
@@ -46,7 +51,8 @@ struct gliph {
 struct gliph *gliphs;
 #define gliph_at(x,y) gliphs[(y) * screen_width + (x)]
 
-static inline void gliph_set(int x, int y, wchar_t character, short color){
+static inline
+void gliph_set(int x, int y, wchar_t character, short color){
         struct gliph *gliph = &gliph_at(x,y);
         gliph->character = character;
         gliph->color = color;
@@ -56,7 +62,6 @@ static inline void gliph_set(int x, int y, wchar_t character, short color){
 #define abs(n) ((n) < 0 ? -(n) : (n))
 #define rand_range(min,max) (rand() % ((max) - (min)) + (min))
 
-// Default values
 #define UNICODE_CHAR     0x30A1
 #define UNICODE_STEP     89
 
@@ -66,8 +71,8 @@ static inline void gliph_set(int x, int y, wchar_t character, short color){
 #define MIN_STREAM_LENGTH 4
 #define MAX_STREAM_LENGTH 12
 
-#define MIN_STREAM_SPEED 5
-#define MAX_STREAM_SPEED 30
+#define MIN_STREAM_SPEED 4
+#define MAX_STREAM_SPEED 26
 
 void check_screen_size();
 void update(double elapsed_time);
@@ -94,7 +99,7 @@ struct {
         wchar_t *stream;
         int stream_length;
         int nstreams;
-} config = {
+} conf = {
         .unicode = true,
         .seed_char = UNICODE_CHAR,
         .step = UNICODE_STEP
@@ -108,68 +113,81 @@ void win_setup_console();
 
 int main(int argc, char *argv[]){
         for (int i = 1; i < argc; i++){
-                if (argv[i][0] == '-'){
-                        if (argv[i][1] == '-'){
-                                if (strcmp(&argv[i][2], "ascii") == 0){
-                                        config.unicode = false;
-                                        config.seed_char = ASCII_CHAR;
-                                        config.step = ASCII_STEP;
-                                }
-                                else if (strcmp(&argv[i][2], "char-seed") == 0){
-                                        if (i == argc - 1){
-                                                fprintf(stderr, "Missing argument to --char-seed\n");
-                                                exit(1);
-                                        }
-                                        sscanf(argv[++i], "%x", &config.seed_char);
-                                }
-                                else if(strcmp(&argv[i][2], "step") == 0){
-                                        if (i == argc - 1){
-                                                fprintf(stderr, "Missing argument to --char-seed\n");
-                                                exit(1);
-                                        }
-                                        sscanf(argv[++i], "%u", &config.step);
-                                }
-                                else if(strcmp(&argv[i][2], "stream") == 0){
-                                        if (i == argc - 1){
-                                                fprintf(stderr, "Missing argument to --stream\n");
-                                                exit(1);
-                                        }
-                                        size_t length = strlen(argv[++i]);
-                                        config.stream_length = length;
-                                        config.stream = malloc(length * sizeof(wchar_t));
-                                        char *src = argv[i];
-                                        wchar_t *dst = config.stream;
-                                        while (*src != '\0'){
-                                                *dst++ = (wchar_t) *src++;
-                                        }
-                                }
-                                else if (strcmp(&argv[i][2], "number-of-streams") == 0){
-                                        if (i == argc - 1){
-                                                fprintf(stderr, "Missing argument to --number-of-streams\n");
-                                                exit(1);
-                                        }
-                                        config.nstreams = atoi(argv[++i]);
-                                }
-                                else if(strcmp(&argv[i][2], "help") == 0){
-                                        help();
-                                }
-                                else{
-                                        fprintf(stderr, "Invalid argument: %s\nUse --help or -h to get a list of possible arguments\n", &argv[i][2]);
+                if (argv[i][0] == '-' && argv[i][1] == '-'){
+                        if (strcmp(&argv[i][2], "ascii") == 0){
+                                conf.unicode = false;
+                                conf.seed_char = ASCII_CHAR;
+                                conf.step = ASCII_STEP;
+                        }
+                        else if (strcmp(&argv[i][2], "char-seed") == 0){
+                                if (i == argc - 1){
+                                        fprintf(stderr, "Missing argument to --char-seed\n");
                                         exit(1);
                                 }
-                        }else{
-                                switch (argv[i][1]){
-                                case 'h':
-                                        help();
-                                        break;
+                                sscanf(argv[++i], "%x", &conf.seed_char);
+                        }
+                        else if(strcmp(&argv[i][2], "step") == 0){
+                                if (i == argc - 1){
+                                        fprintf(stderr, "Missing argument to --char-seed\n");
+                                        exit(1);
                                 }
+                                sscanf(argv[++i], "%u", &conf.step);
+                        }
+                        else if(strcmp(&argv[i][2], "stream") == 0){
+                                if (i == argc - 1){
+                                        fprintf(stderr, "Missing argument to --stream\n");
+                                        exit(1);
+                                }
+                                size_t length = strlen(argv[++i]);
+                                conf.stream_length = length;
+                                conf.stream = malloc(length * sizeof(wchar_t));
+                                char *src = argv[i];
+                                wchar_t *dst = conf.stream;
+                                while (*src != '\0'){
+                                        *dst++ = (wchar_t) *src++;
+                                }
+                        }
+                        else if (strcmp(&argv[i][2], "number-of-streams") == 0){
+                                if (i == argc - 1){
+                                        fprintf(stderr, "Missing argument to --number-of-streams\n");
+                                        exit(1);
+                                }
+                                conf.nstreams = atoi(argv[++i]);
+                        }
+                        else if(strcmp(&argv[i][2], "help") == 0){
+                                help();
+                        }
+                        else{
+                                fprintf(stderr, "Invalid argument: %s\nUse --help or -h to get a list of possible arguments\n", &argv[i][2]);
+                                exit(1);
                         }
                 }
         }
 
-        if (config.unicode){
+        if (conf.unicode){
                 setlocale(LC_CTYPE, "en_US.UTF-8");
         }
+
+#if __has_include(<poll.h>)
+        /* Read stdin and use it as a source of characters for the streams.
+           This allows us to pipe a file, or the ouput of a command */
+        struct pollfd fds[] = {{0,POLLIN}};
+        int p = poll(fds, 1, 5);
+        if (p > 0){
+                size_t cap = 1024;
+                conf.stream = malloc(cap * sizeof(wchar_t));
+                conf.stream_length = 0;
+                wchar_t c;
+                while ((c = getwchar()) != WEOF){
+                        if (!iswprint(c)) continue;
+                        conf.stream[conf.stream_length++] = c;
+                        if (conf.stream_length == cap){
+                                cap *= 1.5;
+                                conf.stream = realloc(conf.stream, cap * sizeof(wchar_t));
+                        }
+                }
+        }
+#endif
 
         srand(time(NULL));
         check_screen_size();
@@ -192,7 +210,7 @@ int main(int argc, char *argv[]){
         screen_clear();
 
 #ifdef __unix__
-        struct timespec ts = {
+        const struct timespec ts = {
                 .tv_sec = 0,
                 .tv_nsec = 10000000 // 10ms
         };
@@ -213,11 +231,11 @@ int main(int argc, char *argv[]){
                         }
                 }
                 fflush(stdout);
-        #ifdef __unix__
+#ifdef __unix__
                 nanosleep(&ts, NULL);
-        #elif _WIN32
+#elif _WIN32
                 Sleep(10);
-        #endif
+#endif
         }
         return 0;
 }
@@ -260,37 +278,29 @@ void update(double elapsed_time){
 
 void rand_stream(struct stream *stream){
         stream->length = rand_range(MIN_STREAM_LENGTH, MAX_STREAM_LENGTH);
-        if (config.stream != NULL && stream->length > config.stream_length){
-                stream->length = config.stream_length;
-        }
         if (!stream->str || stream->length > stream->str_size){
                 free(stream->str);
                 stream->str = malloc(stream->length * sizeof(wchar_t));
                 stream->str_size = stream->length;
         }
-
         for (int i = 0; i < stream->length; i++){
-                if (config.stream == NULL){
-                        stream->str[i] = rand() % config.step + config.seed_char;
-                }else{
-                        stream->str[i] = config.stream[i];
-                }
+                if (conf.stream == NULL)
+                        stream->str[i] = rand() % conf.step + conf.seed_char;
+                else
+                        stream->str[i] = conf.stream[rand_range(0, conf.stream_length)];
         }
-
-        if (config.unicode){
-                // If we're displaying unicode, use only pair values of x
-                // to account for full width unicode characters.
-                // Also, leave a few columns free to the rigth of the
-                // screen, to avoid overflow in some terminals
-                stream->x = rand_range(0, screen_width-3);
-                if (stream->x % 2 != 0){
-                        stream->x++;
-                }
+        if (conf.unicode){
+                /* If we're displaying unicode, use only pair values of x
+                   to avoid full width unicode characters overlapping.
+                   Also, leave a few columns free to the rigth of the
+                   screen, to avoid overflow in some terminals */
+                stream->x = rand_range(0, screen_width-2);
+                if (stream->x % 2 != 0)
+                        stream->x--;
         }else{
                 stream->x = rand_range(0, screen_width);
         }
         stream->y = 0.0;
-
         stream->speed = rand_range(MIN_STREAM_SPEED, MAX_STREAM_SPEED);
 }
 
@@ -307,39 +317,30 @@ void check_screen_size(){
         int w = csbi.srWindow.Right - csbi.srWindow.Left + 1;
         int h = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
 #endif
-        if (w != screen_width || h != screen_height){
+        if (w != screen_width || h != screen_height)
                 resize(w, h);
-        }
 }
 
 void resize(int width, int height){
         fflush(stdout);
-
         screen_width = width;
         screen_height = height;
-
         size_t buffer_size = sizeof(wchar_t) * screen_width * screen_height * 500;
         setvbuf(stdout, NULL, _IOFBF, buffer_size);
-
         free(gliphs);
         gliphs = calloc(screen_height * screen_width, sizeof(struct gliph));
-
         if (streams){
-                for (int i = 0; i < n_streams; i++){
+                for (int i = 0; i < n_streams; i++)
                         free(streams[i].str);
-                }
                 free(streams);
         }
-        if (config.nstreams == 0){
+        if (conf.nstreams == 0)
                 n_streams = screen_width + (screen_width * 0.3);
-        }else{
-                n_streams = config.nstreams;
-        }
+        else
+                n_streams = conf.nstreams;
         streams = calloc(n_streams, sizeof(struct stream));
-        for (int i = 0; i < n_streams; i++){
+        for (int i = 0; i < n_streams; i++)
                 rand_stream(&streams[i]);
-        }
-
         screen_clear();
 }
 
@@ -349,9 +350,8 @@ void cleanup(){
         buffer_show();
         fflush(stdout);
         if (streams){
-                for (int i = 0; i < n_streams; i++){
+                for (int i = 0; i < n_streams; i++)
                         free(streams[i].str);
-                }
                 free(streams);
         }
         exit(0);
@@ -359,21 +359,20 @@ void cleanup(){
 
 void help(){
         printf("Matrix Rain\n"
-                "Parameters:\n"
-                "  --ascii: use ascii characters only.\n"
-                "  --char-seed <hex-code>: uses the given char as the \"seed\".\n"
-                "  --step <number>: Sets how many characters since the \"char seed\" to use for the stream generation.\n"
-                "  --stream <string>: use the given string as the stream.\n"
-                "  --number-of-streams <number>: sets the number of streams on the screen\n"
-                "  --help (or -h): display this help guide.\n");
+               "Parameters:\n"
+               "  --ascii: use ascii characters only.\n"
+               "  --char-seed <hex-code>: uses the given char as the \"seed\".\n"
+               "  --step <number>: Sets how many characters since the \"char seed\" to use for the stream generation.\n"
+               "  --stream <string>: use the given string as the stream.\n"
+               "  --number-of-streams <number>: sets the number of streams on the screen\n"
+               "  --help: display this help guide.\n");
         exit(0);
 }
 
 #ifdef _WIN32
 void win_handle_signal(DWORD signal){
-        if (signal == CTRL_C_EVENT){
+        if (signal == CTRL_C_EVENT)
                 cleanup();
-        }
 }
 
 void win_setup_console(){

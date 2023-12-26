@@ -1,6 +1,6 @@
 .PHONY: install uninstall clean
 
-CC = gcc
+CC = cc
 CCFLAGS = -O3
 INSTALL_PATH ?= /usr/local
 

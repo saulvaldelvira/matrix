@@ -1,8 +1,3 @@
-/**
- * Macros to print ANSI escapes.
- * Copyright (C) 2023 - Saúl Valdelvira <saul@saulv.es>
- * License: MIT
-*/
 #ifndef CONSOLE_H
 #define CONSOLE_H
 

@@ -1,7 +1,6 @@
 /**
  * Matrix rainfall animation
- * Copyright (C) 2023 - Saúl Valdelvira <saul@saulv.es>
- * License: MIT
+ * Author: Saúl Valdelvira (2023)
 */
 #include <stdio.h>
 #include <wchar.h>
@@ -23,38 +22,32 @@
         #include <io.h>
 #endif
 
-/**
- * A stream of text
-*/
-typedef struct Stream {
-        wchar_t *str;   // Characters to display
-        int str_size;   // Size of str
-        int length;     // Length of the stream
-        int x;          // X coord
-        double y;       // Y coord
-        int speed;      // Falling speed
-} Stream;
+struct stream {
+        wchar_t *str;
+        int str_size;
+        int length;
+        int x;
+        double y;
+        int speed;
+};
 
-Stream *streams = NULL;
+struct stream *streams = NULL;
 int n_streams;
 
 int screen_width = 0;
 int screen_height = 0;
 
-/**
- * Represents a character in the screen
-*/
-typedef struct Gliph {
+struct gliph {
         wchar_t character;
         short color;
-        bool need_update; // true if it needs to be updated in the next frame
-} Gliph;
+        bool need_update;
+};
 
-Gliph *gliphs;
+struct gliph *gliphs;
 #define gliph_at(x,y) gliphs[(y) * screen_width + (x)]
 
 static inline void gliph_set(int x, int y, wchar_t character, short color){
-        Gliph *gliph = &gliph_at(x,y);
+        struct gliph *gliph = &gliph_at(x,y);
         gliph->character = character;
         gliph->color = color;
         gliph->need_update = true;
@@ -80,13 +73,10 @@ void check_screen_size();
 void update(double elapsed_time);
 void resize(int width, int hwight);
 void cleanup();
-void rand_stream(Stream *str);
+void rand_stream(struct stream *str);
 void sleep_for(unsigned long millis);
 void help();
 
-/**
- * Returns the current time, is seconds
-*/
 static inline double get_time(){
 #ifdef __unix__
         static struct timeval tv;
@@ -97,7 +87,6 @@ static inline double get_time(){
 #endif
 }
 
-// Configuration
 struct {
         bool unicode;
         wchar_t seed_char;
@@ -113,14 +102,11 @@ struct {
 
 #ifdef _WIN32
 HANDLE win_console;
-// Helper functions for windows
 void win_handle_signal(DWORD signal);
 void win_setup_console();
 #endif
 
 int main(int argc, char *argv[]){
-        // Arguments and configuration
-        // TODO: Custom colors
         for (int i = 1; i < argc; i++){
                 if (argv[i][0] == '-'){
                         if (argv[i][1] == '-'){
@@ -185,11 +171,9 @@ int main(int argc, char *argv[]){
                 setlocale(LC_CTYPE, "en_US.UTF-8");
         }
 
-        // Initialization
         srand(time(NULL));
         check_screen_size();
 
-        // Handle CTRL + C signal
 #ifdef __unix__
         signal(SIGINT, &cleanup);
 #elif _WIN32
@@ -206,22 +190,19 @@ int main(int argc, char *argv[]){
         double elapsed_time;
 
         screen_clear();
-        // Loop
+
 #ifdef __unix__
         struct timespec ts = {
                 .tv_sec = 0,
                 .tv_nsec = 10000000 // 10ms
         };
 #endif
-        while (1){
+        for (;;){
                 elapsed_time = get_time() - last_time;
                 last_time = get_time();
 
                 check_screen_size();
-
                 update(elapsed_time);
-
-                // Render frame
                 for (int i = 0; i < screen_height; i++){
                         for (int j = 0; j < screen_width; j++){
                                 if (gliph_at(j,i).need_update){
@@ -238,15 +219,12 @@ int main(int argc, char *argv[]){
                 Sleep(10);
         #endif
         }
-
-        // free mem
-        cleanup();
         return 0;
 }
 
 void update(double elapsed_time){
         for (int i = 0; i < n_streams; i++){
-                Stream *stream = &streams[i];
+                struct stream *stream = &streams[i];
 
                 // Remove stream. This is done to avoid having to clear the whole
                 // screen each frame. The streams clean after themselves.
@@ -280,8 +258,7 @@ void update(double elapsed_time){
         }
 }
 
-void rand_stream(Stream *stream){
-        // If needed, expand stream->str
+void rand_stream(struct stream *stream){
         stream->length = rand_range(MIN_STREAM_LENGTH, MAX_STREAM_LENGTH);
         if (config.stream != NULL && stream->length > config.stream_length){
                 stream->length = config.stream_length;
@@ -292,7 +269,6 @@ void rand_stream(Stream *stream){
                 stream->str_size = stream->length;
         }
 
-        // Fill the stream
         for (int i = 0; i < stream->length; i++){
                 if (config.stream == NULL){
                         stream->str[i] = rand() % config.step + config.seed_char;
@@ -346,7 +322,7 @@ void resize(int width, int height){
         setvbuf(stdout, NULL, _IOFBF, buffer_size);
 
         free(gliphs);
-        gliphs = calloc(screen_height * screen_width, sizeof(Gliph));
+        gliphs = calloc(screen_height * screen_width, sizeof(struct gliph));
 
         if (streams){
                 for (int i = 0; i < n_streams; i++){
@@ -359,7 +335,7 @@ void resize(int width, int height){
         }else{
                 n_streams = config.nstreams;
         }
-        streams = calloc(n_streams, sizeof(Stream));
+        streams = calloc(n_streams, sizeof(struct stream));
         for (int i = 0; i < n_streams; i++){
                 rand_stream(&streams[i]);
         }

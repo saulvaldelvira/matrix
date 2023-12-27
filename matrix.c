@@ -190,7 +190,7 @@ int main(int argc, char *argv[]){
                 conf.stream_length = 0;
                 wchar_t c;
                 while ((c = getwchar()) != WEOF){
-                        if (!iswprint(c)) continue;
+                        if (!iswprint(c) || c == ' ') continue;
                         if (wcwidth(c) > 1)
                                 conf.full_width_unicode = true;
                         conf.stream[conf.stream_length++] = c;

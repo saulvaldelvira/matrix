@@ -1,7 +1,7 @@
 ## The matrix, in your terminal
 A console aplication to render a rainfall of characters, like in the movie.<br>
 
-![screencast](https://img.saulv.es/matrix.gif)
+<img src="https://img.saulv.es/matrix.gif" alt="screencast" width="100%" />
 
 ## Arguments
 - `--ascii`: use ascii characters only. <br>

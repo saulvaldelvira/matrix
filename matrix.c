@@ -2,15 +2,17 @@
  * Matrix rainfall animation
  * Author: Saúl Valdelvira (2023)
  */
-#include <stdio.h>
+#define _POSIX_C_SOURCE 200112L
+#define _XOPEN_SOURCE
 #include <wchar.h>
+#include <stdio.h>
 #include <wctype.h>
-#include "console.h"
 #include <stdlib.h>
 #include <time.h>
 #include <locale.h>
 #include <string.h>
 #include <stdbool.h>
+#include "console.h"
 
 #if __has_include(<poll.h>)
 #include <poll.h>
@@ -97,7 +99,7 @@ static inline double get_time(){
 }
 
 struct {
-        bool unicode;
+        bool full_width_unicode;
         wchar_t seed_char;
         int step;
         wchar_t *stream;
@@ -107,7 +109,7 @@ struct {
         struct termios original_term;
 #endif
 } conf = {
-        .unicode = true,
+        .full_width_unicode = true,
         .seed_char = UNICODE_CHAR,
         .step = UNICODE_STEP
 };
@@ -122,7 +124,7 @@ int main(int argc, char *argv[]){
         for (int i = 1; i < argc; i++){
                 if (argv[i][0] == '-' && argv[i][1] == '-'){
                         if (strcmp(&argv[i][2], "ascii") == 0){
-                                conf.unicode = false;
+                                conf.full_width_unicode = false;
                                 conf.seed_char = ASCII_CHAR;
                                 conf.step = ASCII_STEP;
                         }
@@ -145,6 +147,7 @@ int main(int argc, char *argv[]){
                                         fprintf(stderr, "Missing argument to --stream\n");
                                         exit(1);
                                 }
+                                conf.full_width_unicode = false;
                                 size_t length = strlen(argv[++i]);
                                 conf.stream_length = length;
                                 conf.stream = malloc(length * sizeof(wchar_t));
@@ -152,6 +155,8 @@ int main(int argc, char *argv[]){
                                 wchar_t *dst = conf.stream;
                                 while (*src != '\0'){
                                         *dst++ = (wchar_t) *src++;
+                                        if (wcwidth(*dst) > 1)
+                                                conf.full_width_unicode = true;
                                 }
                         }
                         else if (strcmp(&argv[i][2], "number-of-streams") == 0){
@@ -171,9 +176,7 @@ int main(int argc, char *argv[]){
                 }
         }
 
-        if (conf.unicode){
-                setlocale(LC_CTYPE, "en_US.UTF-8");
-        }
+        setlocale(LC_CTYPE, "");
 
 #if __has_include(<poll.h>)
         /* Read stdin and use it as a source of characters for the streams.
@@ -181,12 +184,15 @@ int main(int argc, char *argv[]){
         struct pollfd fds[] = {{0,POLLIN}};
         int p = poll(fds, 1, 5);
         if (p > 0){
+                conf.full_width_unicode = false;
                 size_t cap = 1024;
                 conf.stream = malloc(cap * sizeof(wchar_t));
                 conf.stream_length = 0;
                 wchar_t c;
                 while ((c = getwchar()) != WEOF){
                         if (!iswprint(c)) continue;
+                        if (wcwidth(c) > 1)
+                                conf.full_width_unicode = true;
                         conf.stream[conf.stream_length++] = c;
                         if (conf.stream_length == cap){
                                 cap *= 1.5;
@@ -303,9 +309,9 @@ void rand_stream(struct stream *stream){
                 else
                         stream->str[i] = conf.stream[rand_range(0, conf.stream_length)];
         }
-        if (conf.unicode){
-                /* If we're displaying unicode, use only pair values of x
-                   to avoid full width unicode characters overlapping.
+        if (conf.full_width_unicode){
+                /* If we're displaying full width unicode characters, use
+                   only pair values of x to avoid characters overlapping.
                    Also, leave a few columns free to the rigth of the
                    screen, to avoid overflow in some terminals */
                 stream->x = rand_range(0, screen_width-2);

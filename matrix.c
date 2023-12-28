@@ -69,10 +69,10 @@ void gliph_set(int x, int y, wchar_t character, short color){
 #define rand_range(min,max) (rand() % ((max) - (min)) + (min))
 
 #define UNICODE_CHAR     0x30A1
-#define UNICODE_STEP     89
+#define UNICODE_RANGE     89
 
 #define ASCII_CHAR      0x23
-#define ASCII_STEP      59
+#define ASCII_RANGE      59
 
 #define MIN_STREAM_LENGTH 4
 #define MAX_STREAM_LENGTH 12
@@ -101,7 +101,7 @@ static inline double get_time(){
 struct {
         bool full_width_unicode;
         wchar_t seed_char;
-        int step;
+        int range;
         wchar_t *stream;
         int stream_length;
         int nstreams;
@@ -111,7 +111,7 @@ struct {
 } conf = {
         .full_width_unicode = true,
         .seed_char = UNICODE_CHAR,
-        .step = UNICODE_STEP
+        .range = UNICODE_RANGE
 };
 
 #ifdef _WIN32
@@ -126,7 +126,7 @@ int main(int argc, char *argv[]){
                         if (strcmp(&argv[i][2], "ascii") == 0){
                                 conf.full_width_unicode = false;
                                 conf.seed_char = ASCII_CHAR;
-                                conf.step = ASCII_STEP;
+                                conf.range = ASCII_RANGE;
                         }
                         else if (strcmp(&argv[i][2], "char-seed") == 0){
                                 if (i == argc - 1){
@@ -135,12 +135,12 @@ int main(int argc, char *argv[]){
                                 }
                                 sscanf(argv[++i], "%x", &conf.seed_char);
                         }
-                        else if(strcmp(&argv[i][2], "step") == 0){
+                        else if(strcmp(&argv[i][2], "range") == 0){
                                 if (i == argc - 1){
-                                        fprintf(stderr, "Missing argument to --char-seed\n");
+                                        fprintf(stderr, "Missing argument to --range\n");
                                         exit(1);
                                 }
-                                sscanf(argv[++i], "%u", &conf.step);
+                                sscanf(argv[++i], "%u", &conf.range);
                         }
                         else if(strcmp(&argv[i][2], "stream") == 0){
                                 if (i == argc - 1){
@@ -170,7 +170,7 @@ int main(int argc, char *argv[]){
                                 help();
                         }
                         else{
-                                fprintf(stderr, "Invalid argument: %s\nUse --help or -h to get a list of possible arguments\n", &argv[i][2]);
+                                fprintf(stderr, "Invalid argument: %s\nUse --help to get a list of possible arguments\n", &argv[i][2]);
                                 exit(1);
                         }
                 }
@@ -305,7 +305,7 @@ void rand_stream(struct stream *stream){
         }
         for (int i = 0; i < stream->length; i++){
                 if (conf.stream == NULL)
-                        stream->str[i] = rand() % conf.step + conf.seed_char;
+                        stream->str[i] = rand() % conf.range + conf.seed_char;
                 else
                         stream->str[i] = conf.stream[rand_range(0, conf.stream_length)];
         }
@@ -381,11 +381,10 @@ void cleanup(){
 }
 
 void help(){
-        printf("Matrix Rain\n"
-               "Parameters:\n"
+        printf("Parameters:\n"
                "  --ascii: use ascii characters only.\n"
                "  --char-seed <hex-code>: uses the given char as the \"seed\".\n"
-               "  --step <number>: Sets how many characters since the \"char seed\" to use for the stream generation.\n"
+               "  --range <number>: Sets how many characters since the \"char seed\" to use for the stream generation.\n"
                "  --stream <string>: use the given string as the stream.\n"
                "  --number-of-streams <number>: sets the number of streams on the screen\n"
                "  --help: display this help guide.\n");

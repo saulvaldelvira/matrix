@@ -1,4 +1,4 @@
-/**
+/*
  * Matrix rainfall animation
  * Author: Saúl Valdelvira (2023)
  */
@@ -201,6 +201,10 @@ int main(int argc, char *argv[]){
                 }
         }
 #endif
+        if (conf.stream && conf.stream_length == 0){
+                conf.stream[0] = ' ';
+                conf.stream_length = 1;
+        }
 
 #if __has_include(<termios.h>)
         tcgetattr(STDIN_FILENO, &conf.original_term);

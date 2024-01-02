@@ -77,8 +77,8 @@ void gliph_set(int x, int y, wchar_t character, short color){
 #define MIN_STREAM_LENGTH 4
 #define MAX_STREAM_LENGTH 12
 
-#define MIN_STREAM_SPEED 4
-#define MAX_STREAM_SPEED 26
+#define MIN_STREAM_SPEED 5
+#define MAX_STREAM_SPEED 25
 
 void check_screen_size();
 void update(double elapsed_time);
@@ -88,13 +88,13 @@ void rand_stream(struct stream *str);
 void sleep_for(unsigned long millis);
 void help();
 
-static inline double get_time(){
+static inline double get_time_ms(){
 #ifdef __unix__
         static struct timeval tv;
         gettimeofday(&tv, NULL);
-        return tv.tv_sec * 1.0 + tv.tv_usec / 1000000.0;
+        return tv.tv_sec * 1000.0 + tv.tv_usec / 1000.0;
 #elif _WIN32
-        return GetTickCount() * 1.0 / 1000.0;
+        return GetTickCount() * 1.0;
 #endif
 }
 
@@ -105,13 +105,20 @@ struct {
         wchar_t *stream;
         int stream_length;
         int nstreams;
+        wchar_t *message;
+        int message_length;
+        bool *message_shown;
+        double message_delay;
+        double last_message;
+        int message_num_shown;
 #if __has_include(<termios.h>)
         struct termios original_term;
 #endif
 } conf = {
-        .full_width_unicode = true,
+        .full_width_unicode = false,
         .seed_char = UNICODE_CHAR,
-        .range = UNICODE_RANGE
+        .range = UNICODE_RANGE,
+        .message_delay = 700.0
 };
 
 #ifdef _WIN32
@@ -120,11 +127,18 @@ void win_handle_signal(DWORD signal);
 void win_setup_console();
 #endif
 
+static wchar_t* readwstr(const char* src, int *len){
+        size_t length = mbstowcs(NULL, src, 0); ;
+        wchar_t *wstr = malloc((length + 1) * sizeof(wchar_t));
+        *len = mbstowcs(wstr, src, length + 1);
+        return wstr;
+}
+
 int main(int argc, char *argv[]){
+        setlocale(LC_CTYPE, "");
         for (int i = 1; i < argc; i++){
                 if (argv[i][0] == '-' && argv[i][1] == '-'){
                         if (strcmp(&argv[i][2], "ascii") == 0){
-                                conf.full_width_unicode = false;
                                 conf.seed_char = ASCII_CHAR;
                                 conf.range = ASCII_RANGE;
                         }
@@ -147,17 +161,22 @@ int main(int argc, char *argv[]){
                                         fprintf(stderr, "Missing argument to --stream\n");
                                         exit(1);
                                 }
-                                conf.full_width_unicode = false;
-                                size_t length = strlen(argv[++i]);
-                                conf.stream_length = length;
-                                conf.stream = malloc(length * sizeof(wchar_t));
-                                char *src = argv[i];
-                                wchar_t *dst = conf.stream;
-                                while (*src != '\0'){
-                                        *dst++ = (wchar_t) *src++;
-                                        if (wcwidth(*dst) > 1)
-                                                conf.full_width_unicode = true;
+                                conf.stream = readwstr(argv[++i], &conf.stream_length);
+                        }
+                        else if(strcmp(&argv[i][2], "message") == 0){
+                                if (i == argc - 1){
+                                        fprintf(stderr, "Missing argument to --message\n");
+                                        exit(1);
                                 }
+                                conf.message = readwstr(argv[++i], &conf.message_length);
+                                conf.message_shown = calloc(conf.message_length, sizeof(bool));
+                        }
+                        else if (strcmp(&argv[i][2], "message-delay") == 0){
+                                if (i == argc - 1){
+                                        fprintf(stderr, "Missing argument to --message-delay\n");
+                                        exit(1);
+                                }
+                                conf.message_delay = atof(argv[++i]) * 1000;
                         }
                         else if (strcmp(&argv[i][2], "number-of-streams") == 0){
                                 if (i == argc - 1){
@@ -176,7 +195,8 @@ int main(int argc, char *argv[]){
                 }
         }
 
-        setlocale(LC_CTYPE, "");
+        if (wcwidth(conf.seed_char) > 1)
+                conf.full_width_unicode = true;
 
 #if __has_include(<poll.h>)
         /* Read stdin and use it as a source of characters for the streams.
@@ -228,7 +248,7 @@ int main(int argc, char *argv[]){
         cursor_off();
         console_setcolor256_bg(232);
 
-        double last_time = get_time();
+        double last_time = get_time_ms();
         double elapsed_time;
 
         screen_clear();
@@ -240,8 +260,8 @@ int main(int argc, char *argv[]){
         };
 #endif
         for (;;){
-                elapsed_time = get_time() - last_time;
-                last_time = get_time();
+                elapsed_time = get_time_ms() - last_time;
+                last_time = get_time_ms();
 
                 check_screen_size();
                 update(elapsed_time);
@@ -274,7 +294,7 @@ void update(double elapsed_time){
                         gliph_set(stream->x, ((int)stream->y) + j, L' ', 0);
                 }
 
-                stream->y += stream->speed * elapsed_time * (screen_height / 55.0);
+                stream->y += stream->speed * elapsed_time / 1000 * (screen_height / 55.0);
                 if (stream->y >= screen_height){
                         rand_stream(stream);
                 }
@@ -296,6 +316,24 @@ void update(double elapsed_time){
                         // A little trick to make the characters change positions
                         int char_index = abs(j + (int)stream->y) % stream->length;;
                         gliph_set(stream->x,((int)stream->y) + j, stream->str[char_index], col);
+                }
+        }
+        if (conf.message){
+                if (get_time_ms() >= conf.last_message + conf.message_delay && conf.message_num_shown < conf.message_length){
+                        int pos;
+                        do {
+                                pos = rand_range(0, conf.message_length);
+                        }while (conf.message_shown[pos]);
+                        conf.message_shown[pos] = true;
+                        conf.last_message = get_time_ms();
+                        conf.message_num_shown++;
+                }
+                int midy = screen_height / 2 - 1;
+                int startx = screen_width / 2 - conf.message_length / 2;
+
+                for (int i = 0; i < conf.message_length; i++){
+                        if (conf.message_shown[i])
+                                gliph_set(startx + i, midy, conf.message[i], 255);
                 }
         }
 }
@@ -359,12 +397,16 @@ void resize(int width, int height){
                 free(streams);
         }
         if (conf.nstreams == 0)
-                n_streams = screen_width + (screen_width * 0.3);
+                n_streams = screen_width + (screen_width * 0.05);
         else
                 n_streams = conf.nstreams;
         streams = calloc(n_streams, sizeof(struct stream));
         for (int i = 0; i < n_streams; i++)
                 rand_stream(&streams[i]);
+        if (conf.message){
+                memset(conf.message_shown, 0, conf.message_length * sizeof(bool));
+                conf.message_num_shown = 0;
+        }
         screen_clear();
 }
 
@@ -389,7 +431,9 @@ void help(){
                "  --ascii: use ascii characters only.\n"
                "  --char-seed <hex-code>: uses the given char as the \"seed\".\n"
                "  --range <number>: Sets how many characters since the \"char seed\" to use for the stream generation.\n"
-               "  --stream <string>: use the given string as the stream.\n"
+               "  --stream <string>: Use the given string as the stream.\n"
+               "  --message <string>: Display the string as a message in the middle.\n"
+               "  --message-delay <float>: Delay (in seconds) between 2 characters of the message.\n"
                "  --number-of-streams <number>: sets the number of streams on the screen\n"
                "  --help: display this help guide.\n");
         exit(0);

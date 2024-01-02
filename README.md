@@ -9,6 +9,8 @@ A console aplication to render a rainfall of characters, like in the movie.<br>
                             streams of text will be generated starting from that character. <br>
 - `--step <number>`: Sets how many characters since the "char seed" to use for the stream generation. <br>
 - `--stream <string>`: use the string as the character set for the stream generation. <br>
+- `--message <string>`: Display the string as a message in the middle. <br>
+- `--message-delay <float>`: Delay (in seconds) between 2 characters of the message. <br>
 - `--number-of-streams <number>`: sets the number of streams <br>
 
 You can also use the standard input to set a custom set of characters. <br>

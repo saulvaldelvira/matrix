@@ -83,10 +83,14 @@ void gliph_set(int x, int y, wchar_t character, short color){
 void check_screen_size();
 void update(double elapsed_time);
 void resize(int width, int hwight);
-void cleanup();
+void cleanup(int);
 void rand_stream(struct stream *str);
 void sleep_for(unsigned long millis);
-void help();
+void help(void);
+void die(const char *msg);
+static inline void* xmalloc(size_t nbytes);
+static inline void* xcalloc(size_t n, size_t s);
+static inline void* xrealloc(void *old, size_t nbytes);
 
 static inline double get_time_ms(){
 #ifdef __unix__
@@ -124,12 +128,12 @@ struct {
 #ifdef _WIN32
 HANDLE win_console;
 void win_handle_signal(DWORD signal);
-void win_setup_console();
+void win_setup_console(void);
 #endif
 
 static wchar_t* readwstr(const char* src, int *len){
         size_t length = mbstowcs(NULL, src, 0); ;
-        wchar_t *wstr = malloc((length + 1) * sizeof(wchar_t));
+        wchar_t *wstr = xmalloc((length + 1) * sizeof(wchar_t));
         *len = mbstowcs(wstr, src, length + 1);
         return wstr;
 }
@@ -169,7 +173,7 @@ int main(int argc, char *argv[]){
                                         exit(1);
                                 }
                                 conf.message = readwstr(argv[++i], &conf.message_length);
-                                conf.message_shown = calloc(conf.message_length, sizeof(bool));
+                                conf.message_shown = xcalloc(conf.message_length, sizeof(bool));
                         }
                         else if (strcmp(&argv[i][2], "message-delay") == 0){
                                 if (i == argc - 1){
@@ -206,7 +210,7 @@ int main(int argc, char *argv[]){
         if (p > 0){
                 conf.full_width_unicode = false;
                 size_t cap = 1024;
-                conf.stream = malloc(cap * sizeof(wchar_t));
+                conf.stream = xmalloc(cap * sizeof(wchar_t));
                 conf.stream_length = 0;
                 wchar_t c;
                 while ((c = getwchar()) != WEOF){
@@ -216,7 +220,7 @@ int main(int argc, char *argv[]){
                         conf.stream[conf.stream_length++] = c;
                         if (conf.stream_length == cap){
                                 cap *= 1.5;
-                                conf.stream = realloc(conf.stream, cap * sizeof(wchar_t));
+                                conf.stream = xrealloc(conf.stream, cap * sizeof(wchar_t));
                         }
                 }
         }
@@ -341,8 +345,7 @@ void update(double elapsed_time){
 void rand_stream(struct stream *stream){
         stream->length = rand_range(MIN_STREAM_LENGTH, MAX_STREAM_LENGTH);
         if (!stream->str || stream->length > stream->str_size){
-                free(stream->str);
-                stream->str = malloc(stream->length * sizeof(wchar_t));
+                stream->str = xrealloc(stream->str, stream->length * sizeof(wchar_t));
                 stream->str_size = stream->length;
         }
         for (int i = 0; i < stream->length; i++){
@@ -366,7 +369,7 @@ void rand_stream(struct stream *stream){
         stream->speed = rand_range(MIN_STREAM_SPEED, MAX_STREAM_SPEED);
 }
 
-void check_screen_size(){
+void check_screen_size(void){
 #ifdef __unix__
         struct winsize size;
         ioctl(1, TIOCGWINSZ, &size);
@@ -390,7 +393,7 @@ void resize(int width, int height){
         size_t buffer_size = sizeof(wchar_t) * screen_width * screen_height * 500;
         setvbuf(stdout, NULL, _IOFBF, buffer_size);
         free(gliphs);
-        gliphs = calloc(screen_height * screen_width, sizeof(struct gliph));
+        gliphs = xcalloc(screen_height * screen_width, sizeof(struct gliph));
         if (streams){
                 for (int i = 0; i < n_streams; i++)
                         free(streams[i].str);
@@ -400,7 +403,7 @@ void resize(int width, int height){
                 n_streams = screen_width + (screen_width * 0.05);
         else
                 n_streams = conf.nstreams;
-        streams = calloc(n_streams, sizeof(struct stream));
+        streams = xcalloc(n_streams, sizeof(struct stream));
         for (int i = 0; i < n_streams; i++)
                 rand_stream(&streams[i]);
         if (conf.message){
@@ -410,7 +413,8 @@ void resize(int width, int height){
         screen_clear();
 }
 
-void cleanup(){
+void cleanup(int signal){
+        (void) signal;
         console_restore_state();
         cursor_on();
         buffer_show();
@@ -426,7 +430,7 @@ void cleanup(){
         exit(0);
 }
 
-void help(){
+void help(void){
         printf("Parameters:\n"
                "  --ascii: use ascii characters only.\n"
                "  --char-seed <hex-code>: uses the given char as the \"seed\".\n"
@@ -439,13 +443,38 @@ void help(){
         exit(0);
 }
 
+void die(const char *msg){
+        fprintf(stderr, "ERROR: %s\n", msg);
+        exit(1);
+}
+
+/// malloc wrappers ///////////////////////////////////////
+static inline void* xmalloc(size_t nbytes){
+        void *ptr = malloc(nbytes);
+        if (!ptr) die("ran out of memory");
+        return ptr;
+}
+
+static inline void* xcalloc(size_t n, size_t s){
+        void *ptr = calloc(n,s);
+        if (!ptr) die("ran out of memory");
+        return ptr;
+}
+
+static inline void* xrealloc(void *old, size_t nbytes){
+        void *ptr = realloc(old,nbytes);
+        if (!ptr) die("ran out of memory");
+        return ptr;
+}
+///////////////////////////////////////////////////////////
+
 #ifdef _WIN32
 void win_handle_signal(DWORD signal){
         if (signal == CTRL_C_EVENT)
                 cleanup();
 }
 
-void win_setup_console(){
+void win_setup_console(void){
         win_console = GetStdHandle(STD_OUTPUT_HANDLE);
         DWORD mode;
         SetConsoleOutputCP(CP_UTF8);

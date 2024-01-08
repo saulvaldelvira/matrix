@@ -1,0 +1,19 @@
+== The matrix, in your terminal
+A console aplication to render a rainfall of characters, like in the movie.
+
+image::https://img.saulv.es/matrix.gif[screencast of the program]
+
+=== Arguments
+* ``--ascii``: use ascii characters only.
+* ``--char-seed <hex-code>``: uses the given char as the "seed". This means that the
+                              streams of text will be generated starting from that character.
+* ``--step <number>``: Sets how many characters since the "char seed" to use for the stream generation.
+* ``--stream <string>``: use the string as the character set for the stream generation.
+* ``--message <string>``: Display the string as a message in the middle.
+* ``--message-delay <float>``: Delay (in seconds) between 2 characters of the message.
+* ``--number-of-streams <number>``: sets the number of streams
+
+You can also use the standard input to set a custom set of characters. +
+For example you can pipe a file: ``matrix < sushi-recipes.txt`` +
+Or the output of a command: ``openssl rand 50 | base64 | matrix``
+

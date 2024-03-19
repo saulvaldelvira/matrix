@@ -8,12 +8,13 @@ matrix: matrix.c console.h
 	$(CC) matrix.c -o matrix $(CCFLAGS)
 
 install: matrix
-	@ sudo su -c '\
-	  install -d $(INSTALL_PATH)/bin ; \
-	  install -m 755 matrix $(INSTALL_PATH)/bin ; '
+	@ echo " matrix => $(INSTALL_PATH)/bin"
+	@ install -d $(INSTALL_PATH)/bin
+	@ install -m 755 matrix $(INSTALL_PATH)/bin
 
 uninstall:
-	@ sudo rm -f $(INSTALL_PATH)/bin/matrix
+	@ echo " RM $(INSTALL_PATH)/bin/matrix"
+	@ rm -f $(INSTALL_PATH)/bin/matrix
 
 clean:
 	@ rm -f matrix

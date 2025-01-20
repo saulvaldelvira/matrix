@@ -1,9 +1,2 @@
-# Objects
 *.o
-
-# Executables
-*.out
-*.exe
-
-# Editor
-.vscode
+matrix

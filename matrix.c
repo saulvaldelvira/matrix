@@ -80,7 +80,7 @@ void gliph_set(int x, int y, wchar_t character, short color){
 #define MIN_STREAM_SPEED 5
 #define MAX_STREAM_SPEED 25
 
-void check_screen_size();
+void check_screen_size(void);
 void update(double elapsed_time);
 void resize(int width, int hwight);
 void cleanup(int);
@@ -92,7 +92,7 @@ static inline void* xmalloc(size_t nbytes);
 static inline void* xcalloc(size_t n, size_t s);
 static inline void* xrealloc(void *old, size_t nbytes);
 
-static inline double get_time_ms(){
+static inline double get_time_ms(void){
 #ifdef __unix__
         static struct timeval tv;
         gettimeofday(&tv, NULL);
@@ -212,13 +212,13 @@ int main(int argc, char *argv[]){
                 size_t cap = 1024;
                 conf.stream = xmalloc(cap * sizeof(wchar_t));
                 conf.stream_length = 0;
-                wchar_t c;
+                wint_t c;
                 while ((c = getwchar()) != WEOF){
                         if (!iswprint(c) || c == ' ') continue;
                         if (wcwidth(c) > 1)
                                 conf.full_width_unicode = true;
                         conf.stream[conf.stream_length++] = c;
-                        if (conf.stream_length == cap){
+                        if ((size_t)conf.stream_length == cap){
                                 cap *= 1.5;
                                 conf.stream = xrealloc(conf.stream, cap * sizeof(wchar_t));
                         }
